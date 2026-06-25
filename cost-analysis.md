@@ -204,6 +204,39 @@ The biggest lever by far is the Gemini swap — it removes a cost that scaled pe
 
 ---
 
+## 9. How to run this for $0/month
+
+This walks through what it'd take to run the app on free tiers end-to-end, swap by swap, without gutting functionality or making it noticeably slower. The honest caveat up front: **every piece except Twitter/X can realistically hit $0.** Twitter/X removed its free read/write tier in 2026, so posting an actual reply on X always costs at least $0.015–$0.20 — there is no code change that makes that $0. Everything else below gets to free.
+
+| Piece | Paid version (Sections 1–3) | $0 swap | Does this cost quality/speed? |
+|---|---|---|---|
+| Hosting | Vercel Pro ($20/mo) for `maxDuration: 300` | **Vercel Hobby (free)** + move the actual cron *orchestration* to a **GitHub Actions scheduled workflow** (free: unlimited minutes on public repos, 2,000 min/month free on private repos) that calls each platform's API route separately, plus split the existing single 300s-budget cron into smaller, per-platform/per-batch calls that each finish inside Hobby's default function window | No — same code paths, just triggered and chunked differently. Slightly more moving parts (a workflow file) but no loss of capability. |
+| Database | Neon/Supabase paid tier ($25+/mo) at scale | **Neon free tier** (100 CU-hr/month, 0.5GB storage, scale-to-zero) | No, for personal/small-campaign volume. You'll hit the ceiling only once you're storing a genuinely large volume of scraped posts — by which point you weren't running this for free anyway. |
+| Domain | Custom domain (~$12–20/yr) | **Use the free `your-app.vercel.app` subdomain** instead of a custom domain | Cosmetic only — `NEXT_PUBLIC_APP_URL`/`NEXTAUTH_URL` work identically pointed at the Vercel subdomain. |
+| Email | Resend (already free at this scale) | **Resend free tier**, unchanged — 3,000 emails/month is already $0 and already what the app uses | No change needed. |
+| AI (keywords, filtering, comment generation) | OpenAI, ~$15–20/mo per active campaign | **Gemini 2.5 Flash / Flash-Lite free tier** (Section 6) — swap the AI SDK provider from `@ai-sdk/openai` to `@ai-sdk/google` in `app/actions/ai.ts`. Add a small delay between sequential batch calls in the cron route so you don't exceed the free tier's 10–15 requests/minute cap. | No, at personal/small-campaign scale — same prompts, same structured-output schema, just a different model provider. You do need to respect the per-minute rate limit, which just means pacing requests, not reducing what they do. |
+| LinkedIn — scraping search results | Apify pay-per-result (~$1–8/1,000 results) | Two free options: **(a)** Apify's free plan includes $5/month in credit, which covers roughly 600–5,000 LinkedIn results/month depending on the actor — plenty for a handful of campaigns' daily keyword searches. **(b)** This repo's `package.json` already depends on **`puppeteer`** — you can skip Apify entirely and run the existing LinkedIn session-cookie scrape logic directly in your own serverless function/script with Puppeteer, paying nothing beyond compute you already have. | No for (a) within the free credit ceiling. Option (b) shifts scraping reliability/maintenance onto you (anti-bot handling, cookie refresh) instead of Apify's managed actor — a tradeoff in maintenance burden, not output quality. |
+| LinkedIn — posting replies | Free already (`Share on LinkedIn`, your own account) | **No change — already $0** | No change. |
+| Reddit — search + posting | Free already (personal-tier `snoowrap` credentials) | **No change — already $0** | No change in cost. The ToS risk noted in Section 4 is unchanged either way — running it free doesn't add or remove that risk. |
+| Twitter/X — reading (search) | Pay-per-use reads, $0.005/tweet | **Apify's free $5/month credit** covers searching, using the Twitter scraper actors already wired up in `app/actions/apify.ts` (~$0.15–0.40/1,000 tweets) instead of the official paid Search API | No — same scraped data shape, different source. This part actually can be fully free. |
+| Twitter/X — posting replies | $0.015/post (no link) or $0.20/post (with link) | **No free option exists.** X discontinued free write access; every reply posted costs money, full stop. | This is the one place where "free" and "full functionality" genuinely conflict. To stay at $0, you have to either drop Twitter/X reply-posting from autopilot (keep Reddit + LinkedIn fully automated, leave Twitter/X manual or off), or accept a small per-reply cost only for the replies you actually choose to post. |
+| Stripe / billing | 2.9% + $0.30 per transaction | **Skip entirely** if you're running this for yourself rather than charging other users | No — billing isn't part of the scraping/AI/posting pipeline at all; it only matters if you're monetizing. |
+
+### Realistic $0/month setup
+
+- **Vercel Hobby** + GitHub Actions for cron orchestration
+- **Neon free tier** for Postgres
+- **`*.vercel.app`** subdomain (no custom domain)
+- **Resend free tier** for email
+- **Gemini free tier** for all AI calls (keyword gen, post filtering, comment generation)
+- **Reddit**: free personal-tier credentials (unchanged from today)
+- **LinkedIn**: free posting (your own account) + Apify free credit or self-hosted Puppeteer for scraping
+- **Twitter/X**: either omitted from autopilot, or scraped for free via Apify and posted manually/sparingly to keep the per-reply fee negligible
+
+This gets the entire stack to **$0/month except for whatever you choose to spend on actual Twitter/X reply posts**, with no reduction in the quality of what gets generated or how fast the pipeline runs — the changes are about *where* compute/AI/scraping happens, not what it produces.
+
+---
+
 ## Sources
 
 - [OpenAI API Pricing](https://openai.com/api/pricing/)
@@ -222,3 +255,6 @@ The biggest lever by far is the Gemini swap — it removes a cost that scaled pe
 - [SerpApi Pricing](https://serpapi.com/pricing)
 - [Apify curious_coder LinkedIn Post Search Scraper](https://apify.com/curious_coder/linkedin-post-search-scraper)
 - [Apify apidojo Tweet Scraper](https://apify.com/apidojo/tweet-scraper)
+- [Vercel Hobby Plan](https://vercel.com/docs/plans/hobby)
+- [Vercel Functions Limits / Configuring Max Duration](https://vercel.com/docs/functions/configuring-functions/duration)
+- [X API free tier discontinued / pay-per-use details](https://www.xpoz.ai/blog/guides/understanding-twitter-api-pricing-tiers-and-alternatives/)
