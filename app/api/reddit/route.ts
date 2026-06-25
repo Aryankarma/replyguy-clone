@@ -380,14 +380,6 @@ async function postCommentToReddit(
 ) {
   console.log("Posting comment to Reddit:", { postId, comment }); // Debug statement
   try {
-    // consloe log all reddit vars
-    console.log(`\n\nREDDIT CLIENT ID: ${process.env.REDDIT_CLIENT_ID}`);
-    console.log(
-      `\n\nREDDIT CLIENT SECRET: ${process.env.REDDIT_CLIENT_SECRET}`,
-    );
-    console.log(`\n\nREDDIT USERNAME: ${process.env.REDDIT_USERNAME}`);
-    console.log(`\n\nREDDIT PASSWORD: ${process.env.REDDIT_PASSWORD}`);
-
     // Initialize the snoowrap Reddit instance
     const reddit = new snoowrap({
       userAgent: `script:${process.env.REDDIT_USERNAME}:v1.0 (by u/${process.env.REDDIT_USERNAME})`,

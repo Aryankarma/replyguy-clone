@@ -3,6 +3,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { LINKEDIN_COOKIES } from "@/lib/config/index";
 import { prisma } from "@/lib/db";
 import LinkedInAPI from "@/lib/linkedin-api";
+import { getLinkedInUser } from "@/lib/queries";
 import { getCurrentUser } from "@/lib/session";
 
 export async function GET(request: Request) {
@@ -156,14 +157,22 @@ export async function POST(request: NextRequest) {
         { status: 500 },
       );
     }
+    const linkedInUser = await getLinkedInUser(user.id);
+    if (!linkedInUser?.sub) {
+      return NextResponse.json(
+        { error: "LinkedIn account is not connected for this user" },
+        { status: 400 },
+      );
+    }
+
     const linkedInApi = new LinkedInAPI(accessToken);
 
     const commentContent = {
       postUrn: `urn:li:ugcPost:${linkedInPostId}`,
-      text: "Great post! Thanks for sharing.",
+      text: comment,
     };
 
-    const userUrn = "urn:li:person:1234567890"; // Replace with the URN of the user posting the comment
+    const userUrn = `urn:li:person:${linkedInUser.sub}`;
 
     const response = await linkedInApi.commentOnPost(userUrn, commentContent);
 
